@@ -1,52 +1,67 @@
-"""Create a Google BigQuery linear regression input table.
+"""Run a linear regression using Apache Spark ML.
 
-In the code below, the following actions are taken:
-* A new dataset is created "natality_regression."
-* A query is run against the public dataset,
-    bigquery-public-data.samples.natality, selecting only the data of
-    interest to the regression, the output of which is stored in a new
-    "regression_input" table.
-* The output table is moved over the wire to the user's default project via
-    the built-in BigQuery Connector for Spark that bridges BigQuery and
-    Cloud Dataproc.
+In the following PySpark (Spark Python API) code, we take the following actions:
+
+  * Load a previously created linear regression (BigQuery) input table
+    into our Cloud Dataproc Spark cluster as an RDD (Resilient
+    Distributed Dataset)
+  * Transform the RDD into a Spark Dataframe
+  * Vectorize the features on which the model will be trained
+  * Compute a linear regression using Spark ML
+
 """
 
-from google.cloud import bigquery
+from __future__ import print_function
+from pyspark.context import SparkContext
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.regression import LinearRegression
+from pyspark.sql.session import SparkSession
+# The imports, above, allow us to access SparkML features specific to linear
+# regression as well as the Vectors types.
 
-# Create a new Google BigQuery client using Google Cloud Platform project
-# defaults.
-client = bigquery.Client()
 
-# Prepare a reference to a new dataset for storing the query results.
-dataset_id = "joined_data"
+# Define a function that collects the features of interest
+# (mother_age, father_age, and gestation_weeks) into a vector.
+# Package the vector in a tuple containing the label (`weight_pounds`) for that
+# row.
+def vector_from_inputs(r):
+  return (r["weight_pounds"], Vectors.dense((r["mother_age"]),
+                                            float(r["father_age"]),
+                                            float(r["gestation_weeks"]),
+                                            float(r["weight_gain_pounds"]),
+                                            float(r["apgar_5min"])))
 
-dataset = bigquery.Dataset(client.dataset(dataset_id))
+sc = SparkContext()
+spark = SparkSession(sc)
 
-# Create the new BigQuery dataset.
-dataset = client.create_dataset(dataset)
+# Read the data from BigQuery as a Spark Dataframe.
+natality_data = spark.read.format("bigquery").option(
+    "table", "natality_regression.regression_input").load()
+# Create a view so that Spark SQL queries can be run against the data.
+natality_data.createOrReplaceTempView("natality")
 
-# In the new BigQuery dataset, create a reference to a new table for
-# storing the query results.
-table_ref = dataset.table("regression_input")
-
-# Configure the query job.
-job_config = bigquery.QueryJobConfig()
-
-# Set the destination table to the table reference created above.
-job_config.destination = table_ref
-
-# Set up a query in Standard SQL, which is the default for the BigQuery
-# Python client library.
-# The query selects the fields of interest.
-query = """
-SELECT cases.date,SUM(cases.new_confirmed) AS num_cases,stock.high,trend.Coronavirus___Worldwide_
-FROM `cs4225-294613.cs4225.covid_data` cases
-INNER JOIN `cs4225-294613.cs4225.stocks`stock ON cases.date = stock.Date
-INNER JOIN `cs4225-294613.cs4225.trends`trend ON trend.Day = cases.date
-GROUP BY cases.date,stock.high,trend.Coronavirus___Worldwide_
-ORDER BY cases.date
+# As a precaution, run a query in Spark SQL to ensure no NULL values exist.
+sql_query = """
+SELECT *
+from natality
+where weight_pounds is not null
+and mother_age is not null
+and father_age is not null
+and gestation_weeks is not null
 """
+clean_data = spark.sql(sql_query)
 
-# Run the query.
-query_job = client.query(query, job_config=job_config)
-query_job.result()  # Waits for the query to finish
+# Create an input DataFrame for Spark ML using the above function.
+training_data = clean_data.rdd.map(vector_from_inputs).toDF(["label",
+                                                             "features"])
+training_data.cache()
+
+# Construct a new LinearRegression object and fit the training data.
+lr = LinearRegression(maxIter=5, regParam=0.2, solver="normal")
+model = lr.fit(training_data)
+# Print the model summary.
+print("Coefficients:" + str(model.coefficients))
+print("Intercept:" + str(model.intercept))
+print("R^2:" + str(model.summary.r2))
+model.summary.residuals.show()
+
