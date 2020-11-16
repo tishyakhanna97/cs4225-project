@@ -27,7 +27,7 @@ dataset = client.create_dataset(dataset)
 
 # In the new BigQuery dataset, create a reference to a new table for
 # storing the query results.
-table_ref = dataset.table("first_input")
+table_ref = dataset.table("date-new_confirmed-high-trends-sentiment")
 
 # Configure the query job.
 job_config = bigquery.QueryJobConfig()
@@ -39,11 +39,12 @@ job_config.destination = table_ref
 # Python client library.
 # The query selects the fields of interest.
 query = """
-SELECT cases.date,SUM(cases.new_confirmed) AS num_cases,stock.high,trend.Coronavirus___Worldwide_
+SELECT cases.date,SUM(cases.new_confirmed) AS num_cases,stock.high,trend.Coronavirus___Worldwide_,sentiments.sentiment
 FROM `cs4225-294613.cs4225.covid_data` cases
 INNER JOIN `cs4225-294613.cs4225.stocks`stock ON cases.date = stock.Date
 INNER JOIN `cs4225-294613.cs4225.trends`trend ON trend.Day = cases.date
-GROUP BY cases.date,stock.high,trend.Coronavirus___Worldwide_
+INNER JOIN `cs4225-294613.cs4225.sentiment` sentiments ON sentiments.date = trend.Day
+GROUP BY cases.date,stock.high,trend.Coronavirus___Worldwide_,sentiments.sentiment
 ORDER BY cases.date
 """
 
