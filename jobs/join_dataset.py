@@ -18,7 +18,7 @@ from google.cloud import bigquery
 client = bigquery.Client()
 
 # Prepare a reference to a new dataset for storing the query results.
-dataset_id = "joined_data"
+dataset_id = "new_ds"
 
 dataset = bigquery.Dataset(client.dataset(dataset_id))
 
@@ -27,7 +27,7 @@ dataset = client.create_dataset(dataset)
 
 # In the new BigQuery dataset, create a reference to a new table for
 # storing the query results.
-table_ref = dataset.table("date-new_confirmed-high-trends-sentiment")
+table_ref = dataset.table("date-new_confirmed-high-trends-sentiment-finance")
 
 # Configure the query job.
 job_config = bigquery.QueryJobConfig()
@@ -39,12 +39,16 @@ job_config.destination = table_ref
 # Python client library.
 # The query selects the fields of interest.
 query = """
-SELECT cases.date,SUM(cases.new_confirmed) AS num_cases,stock.high,trend.Coronavirus___Worldwide_,sentiments.sentiment
+SELECT cases.date,SUM(cases.new_confirmed) AS num_cases,stock.high,stock.low,stock.open,stock.close,trend.Coronavirus___Worldwide_,sentiments.sentiment,withdrawals.total_injection
 FROM `cs4225-294613.cs4225.covid_data` cases
 INNER JOIN `cs4225-294613.cs4225.stocks`stock ON cases.date = stock.Date
 INNER JOIN `cs4225-294613.cs4225.trends`trend ON trend.Day = cases.date
 INNER JOIN `cs4225-294613.cs4225.sentiment` sentiments ON sentiments.date = trend.Day
-GROUP BY cases.date,stock.high,trend.Coronavirus___Worldwide_,sentiments.sentiment
+INNER JOIN (SELECT Record_Date, SUM(Transactions_Today) AS total_injection 
+FROM `cs4225-294613.cs4225.us_treasury`
+WHERE Transaction_Type = "Withdrawals"
+GROUP BY Record_Date) withdrawals ON withdrawals.Record_date = sentiments.date
+GROUP BY cases.date,stock.high,stock.low,stock.open,stock.close,trend.Coronavirus___Worldwide_,sentiments.sentiment,withdrawals.total_injection
 ORDER BY cases.date
 """
 
