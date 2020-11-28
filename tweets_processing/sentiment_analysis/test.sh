@@ -1,0 +1,1 @@
+python3 tweets_processing/sentiment_analysis/analyze_sentiment.py tweets_processing/sentiment_analysis/test_tweets.txt
