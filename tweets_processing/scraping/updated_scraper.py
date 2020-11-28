@@ -99,5 +99,3 @@ class Tweet:
         datetime_string = metadata_div.find("a").text
         date_posted = datetime.strptime(datetime_string, "%H:%M %p - %d %b %Y")
         return date_posted
-
-
