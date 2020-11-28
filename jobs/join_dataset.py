@@ -44,7 +44,7 @@ FROM `cs4225-294613.cs4225.covid_data` cases
 INNER JOIN `cs4225-294613.cs4225.stocks`stock ON cases.date = stock.Date
 INNER JOIN `cs4225-294613.cs4225.trends`trend ON trend.Day = cases.date
 INNER JOIN `cs4225-294613.cs4225.sentiment` sentiments ON sentiments.date = trend.Day
-INNER JOIN (SELECT Record_Date, SUM(Transactions_Today) AS total_injection 
+LEFT OUTER JOIN (SELECT Record_Date, SUM(Transactions_Today) AS total_injection 
 FROM `cs4225-294613.cs4225.us_treasury`
 WHERE Transaction_Type = "Withdrawals"
 GROUP BY Record_Date) withdrawals ON withdrawals.Record_date = sentiments.date

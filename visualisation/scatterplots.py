@@ -6,15 +6,18 @@ from matplotlib import colors
 from sklearn import preprocessing
 
 sns.set_theme(style="darkgrid")
-dataframe = pd.read_csv("../data/change_sentiment.csv")
+#dataframe = pd.read_csv("../data/change_sentiment.csv")
+dataframe = pd.read_csv("../data/finance.csv")
 x1 = dataframe.num_cases
 x2 = dataframe.Coronavirus___Worldwide_
 x3 = dataframe.sentiment
-x4 = dataframe.changed
+#x4 = dataframe.changed
+x5 = dataframe.total_injection.cumsum()
 
 y = dataframe.close
 d = dataframe.date
-# plt.scatter(x1,y, color='b')
+plt.scatter(x5, y, color='g')
+plt.show()
 #
 # plt.ylabel('Stock Price')
 # plt.xlabel('Covid Cases')
@@ -31,16 +34,18 @@ d = dataframe.date
 # plt.title('Stocks vs Sentiment Score')
 # plt.show()
 y =(y-y.mean())/y.std()
-x1 =(x1-x1.mean())/x1.std()
+x7 =(x5-x5.mean())/x5.std()
+x6 =(x1-x1.mean())/x1.std()
+
 
 
 plt.plot(d, y, color='b')
-plt.plot(d, x4,color='r')
+plt.plot(d, x7,color='g')
+plt.plot(d, x6,color='r')
 
-plt.ylabel('Stocks and cases')
+
 plt.xlabel('Date')
-plt.title('Stocks and cases against time')
-plt.legend()
+plt.title('Stock Price,COVID cases and Cumulative Government Injections against Time')
 plt.show()
 
 
